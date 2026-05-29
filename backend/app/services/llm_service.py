@@ -1,16 +1,28 @@
-from transformers import pipeline
+import requests
 
-generator = pipeline('text-generation', model="Qwen/Qwen2.5-1.5B-Instruct")
+OLLAMA_URL = "http://localhost:11434/api/generate"
 
 def generate_answer(context, query):
+
     prompt = f"""
-    Answer the question using ONLY on the context below.
+    Answer the question using ONLY the context below.
 
-    Context: {context}
+    Context:
+    {context}
 
-    Question: {query}
+    Question:
+    {query}
     """
 
-    response = generator(prompt, max_new_tokens=200)
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model": "qwen2.5:1.5b",
+            "prompt": prompt,
+            "stream": False
+        }
+    )
 
-    return response[0]['generated_text']
+    data = response.json()
+
+    return data["response"]
