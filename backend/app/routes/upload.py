@@ -17,9 +17,20 @@ async def upload_pdf(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         content = await file.read()
         f.write(content)
-    extracted_text = extract_text_from_pdf(file_path)
-    chunks = chunk_text(extracted_text)
-    embeddings = generate_embedding(chunks)
-    ids = [f"{file.filename}_{i}" for i in range(len(chunks))]
-    collection.add(documents = chunks, embeddings = embeddings.tolist(), ids = ids)
-    return {"filename": file.filename, "chunks": len(chunks), "message": "File uploaded successfully!"}
+    extracted_pages = extract_text_from_pdf(file_path)
+    all_chunks = []
+    all_metadata = []
+
+    for page in extracted_pages:
+        chunks = chunk_text(page["text"])
+        for chunk in chunks:
+            all_chunks.append(chunk)
+            all_metadata.append({
+                "filename": file.filename,
+                "page": page["page"],
+                "source_type": "pdf"
+            })
+    embeddings = generate_embedding(all_chunks)
+    ids = [f"{file.filename}_{i}" for i in range(len(all_chunks))]
+    collection.add(documents = all_chunks, embeddings = embeddings.tolist(), ids = ids, metadatas = all_metadata)
+    return {"filename": file.filename, "chunks": len(all_chunks), "message": "File uploaded successfully!"}

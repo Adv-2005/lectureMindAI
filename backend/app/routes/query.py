@@ -13,8 +13,13 @@ class QueryRequest(BaseModel):
 @router.post("/query")
 def query_rag(request: QueryRequest):
     query_embedding = model.encode(request.query)
-    results = collection.query(query_embeddings=[query_embedding.tolist()], n_results=3)
+    results = collection.query(query_embeddings=[query_embedding.tolist()], n_results=3, include=["documents", "metadatas"])
     retrieved_chunks = results['documents'][0]
-    context = "\n".join(retrieved_chunks)
+    metadata = results['metadatas'][0]
+    context_parts = []
+    for chunk, meta in zip(retrieved_chunks, metadata):
+        source_info = f"{meta['filename']} (Page {meta['page']})" if 'page' in meta else meta['filename']
+        context_parts.append(f"Source: {source_info}\nContent: {chunk}")
+    context = "\n".join(context_parts)
     answer = generate_answer(context, request.query)
-    return {"answer": answer, "context": retrieved_chunks}
+    return {"answer": answer, "context": retrieved_chunks, "sources": metadata}
