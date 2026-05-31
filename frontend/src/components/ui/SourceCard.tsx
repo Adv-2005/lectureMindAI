@@ -3,11 +3,15 @@ interface Source {
   page: number;
 }
 interface SourceCardProps {
-  source: Source;
+  source: Source | null;
   chunk: string;
 }
 
 export default function SourceCard({ source, chunk }: SourceCardProps) {
+
+  if (!source) {
+    return null;
+  }
 
   return (
 

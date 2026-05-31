@@ -1,3 +1,5 @@
+from itertools import zip_longest
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -15,10 +17,15 @@ def query_rag(request: QueryRequest):
     query_embedding = model.encode(request.query)
     results = collection.query(query_embeddings=[query_embedding.tolist()], n_results=3, include=["documents", "metadatas"])
     retrieved_chunks = results['documents'][0]
-    metadata = results['metadatas'][0]
+    metadata = results['metadatas'][0] or []
     context_parts = []
-    for chunk, meta in zip(retrieved_chunks, metadata):
-        source_info = f"{meta['filename']} (Page {meta['page']})" if 'page' in meta else meta['filename']
+    for chunk, meta in zip_longest(retrieved_chunks, metadata, fillvalue=None):
+        if not chunk:
+            continue
+        if not meta:
+            source_info = "Unknown source"
+        else:
+            source_info = f"{meta['filename']} (Page {meta['page']})" if 'page' in meta else meta['filename']
         context_parts.append(f"Source: {source_info}\nContent: {chunk}")
     context = "\n".join(context_parts)
     answer = generate_answer(context, request.query)

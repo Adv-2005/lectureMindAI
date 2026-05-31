@@ -11,7 +11,7 @@ interface Source {
 
 interface QueryResponse {
     answer?: string;
-    sources?: Source[];
+    sources?: Array<Source | null>;
     context?: string[];
     chunks?: string[];
 }
@@ -28,9 +28,10 @@ export default function ChatBox() {
             const response = await api.post("/query", { query });
         const data = response.data as QueryResponse;
         const responseChunks = data.context ?? data.chunks ?? [];
+            const responseSources = (data.sources ?? []).filter((source): source is Source => Boolean(source));
 
         setAnswer(data.answer ?? "");
-        setSources(data.sources ?? []);
+            setSources(responseSources);
         setChunks(responseChunks);
         } catch (error) {
             console.error("Error asking question:", error);
