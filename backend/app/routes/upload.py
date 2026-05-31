@@ -4,7 +4,9 @@ from app.services.pdf_service import extract_text_from_pdf
 from app.utils.chunker import chunk_text
 from app.services.embedding_service import generate_embedding
 from app.db.chroma import collection
+from uuid import uuid4
 
+documnent_id = str(uuid4())
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
@@ -17,7 +19,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         content = await file.read()
         f.write(content)
-    extracted_pages = extract_text_from_pdf(file_path)
+    extracted_pages = extract_text_from_pdf(file_path=file_path, document_id=documnent_id, filename=file.filename)
     all_chunks = []
     all_metadata = []
 
@@ -28,9 +30,10 @@ async def upload_pdf(file: UploadFile = File(...)):
             all_metadata.append({
                 "filename": file.filename,
                 "page": page["page"],
-                "source_type": "pdf"
+                "source_type": "pdf",
+                "document_id": documnent_id
             })
     embeddings = generate_embedding(all_chunks)
-    ids = [f"{file.filename}_{i}" for i in range(len(all_chunks))]
+    ids = [f"{documnent_id}_{i}" for i in range(len(all_chunks))]
     collection.add(documents = all_chunks, embeddings = embeddings.tolist(), ids = ids, metadatas = all_metadata)
-    return {"filename": file.filename, "chunks": len(all_chunks), "message": "File uploaded successfully!"}
+    return {"filename": file.filename, "chunks": len(all_chunks), "message": "File uploaded successfully!", "document_id": documnent_id}

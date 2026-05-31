@@ -22,10 +22,26 @@ export default function ChatBox() {
     const [loading, setLoading] = useState(false);
     const [sources, setSources] = useState<Source[]>([]);
     const [chunks, setChunks] = useState<string[]>([]);
+
+  const getSessionId = () => {
+    const storageKey = "lecturemindai_session_id";
+    const existingSessionId = window.localStorage.getItem(storageKey);
+
+    if (existingSessionId) {
+      return existingSessionId;
+    }
+
+    const newSessionId = window.crypto.randomUUID();
+    window.localStorage.setItem(storageKey, newSessionId);
+
+    return newSessionId;
+  };
+
     const askQuestion = async () => {
         try{
             setLoading(true);
-            const response = await api.post("/query", { query });
+      const session_id = getSessionId();
+      const response = await api.post("/query", { query, session_id });
         const data = response.data as QueryResponse;
         const responseChunks = data.context ?? data.chunks ?? [];
             const responseSources = (data.sources ?? []).filter((source): source is Source => Boolean(source));
