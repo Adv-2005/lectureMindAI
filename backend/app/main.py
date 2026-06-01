@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.upload import router as upload_router
 from app.routes.query import router as query_router
+from app.routes.documents import router as documents_router
 app = FastAPI()
 
 app.add_middleware(
@@ -15,3 +16,4 @@ app.add_middleware(
 
 app.include_router(upload_router)
 app.include_router(query_router)
+app.include_router(documents_router)
