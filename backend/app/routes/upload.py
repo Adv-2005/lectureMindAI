@@ -16,11 +16,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
     document_id = str(uuid4())
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    stored_filename = f"{document_id}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, stored_filename)
     with open(file_path, "wb") as f:
         content = await file.read()
         f.write(content)
-    extracted_pages = extract_text_from_pdf(pdf_path=file_path, document_id=document_id, filename=file.filename)
+    extracted_pages = extract_text_from_pdf(pdf_path=file_path, document_id=document_id, filename=stored_filename)
     all_chunks = []
     all_metadata = []
 

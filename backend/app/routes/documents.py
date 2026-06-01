@@ -1,6 +1,6 @@
 # app/routes/documents.py
-
-from fastapi import APIRouter
+import os
+from fastapi import APIRouter, HTTPException
 from app.db.chroma import collection
 
 router = APIRouter()
@@ -41,3 +41,38 @@ def get_documents():
         documents[document_id]["chunk_count"] += 1
 
     return list(documents.values())
+
+@router.delete("/documents/{document_id}")
+def delete_document(document_id: str):
+    results = collection.get(
+    where={
+        "document_id": document_id
+    },
+    include=["metadatas"]
+)
+    ids = results["ids"]
+    if not ids:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    metadata = results["metadatas"]
+
+    filename = metadata[0]["filename"]
+
+
+
+    file_path = os.path.join(
+        "uploads",
+        filename
+    )
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    collection.delete(ids=ids)
+
+    return {
+        "message": "Document deleted successfully",
+        "document_id": document_id,
+        "filename": filename,
+        "deleted_chunks": len(ids)
+    }
