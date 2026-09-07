@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,7 @@ class Settings(BaseSettings):
     retrieval_k: int = 5
     chunk_size: int = 1000
     chunk_overlap: int = 200
+    max_history_messages: int = Field(default=10, ge=2)
 
     def model_post_init(self, __context: object) -> None:
         """Resolve user-supplied relative paths from the backend directory."""

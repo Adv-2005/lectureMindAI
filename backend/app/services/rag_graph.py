@@ -2,7 +2,7 @@ import sqlite3
 from typing import Annotated, TypedDict
 
 from langchain_core.documents import Document
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, RemoveMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -147,15 +147,29 @@ def generate_answer(state: ChatState) -> dict:
     }
 
 
+def trim_history(state: ChatState) -> dict:
+    """Keep durable conversation state bounded to the configured message window."""
+    messages = state.get("messages", [])
+    if len(messages) <= settings.max_history_messages:
+        return {}
+
+    stale_messages = messages[: -settings.max_history_messages]
+    return {
+        "messages": [RemoveMessage(id=message.id) for message in stale_messages],
+    }
+
+
 def build_chat_graph():
     builder = StateGraph(ChatState)
     builder.add_node("rewrite_query", rewrite_query)
     builder.add_node("retrieve_documents", retrieve_documents)
     builder.add_node("generate_answer", generate_answer)
+    builder.add_node("trim_history", trim_history)
     builder.add_edge(START, "rewrite_query")
     builder.add_edge("rewrite_query", "retrieve_documents")
     builder.add_edge("retrieve_documents", "generate_answer")
-    builder.add_edge("generate_answer", END)
+    builder.add_edge("generate_answer", "trim_history")
+    builder.add_edge("trim_history", END)
 
     settings.prepare_directories()
     connection = sqlite3.connect(str(settings.checkpoint_db_path), check_same_thread=False)
