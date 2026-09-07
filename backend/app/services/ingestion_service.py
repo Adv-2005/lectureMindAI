@@ -50,7 +50,7 @@ def load_and_split_pdf(
     uploaded_at = datetime.now(UTC).isoformat()
 
     for page in pages:
-        # PyPDFLoader uses a zero-based page index; citations remain one-based.
+        # PyMuPDFLoader uses a zero-based page index; citations remain one-based.
         page.metadata.update(
             {
                 "document_id": document_id,
