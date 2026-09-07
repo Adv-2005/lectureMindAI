@@ -1,5 +1,8 @@
 import chromadb
+from app.core.config import settings
 
-client = chromadb.PersistentClient(path="chroma_db")
+settings.prepare_directories()
 
-collection = client.get_or_create_collection(name="lecture_notes")
+client = chromadb.PersistentClient(path=str(settings.chroma_path))
+
+collection = client.get_or_create_collection(name=settings.chroma_collection)
