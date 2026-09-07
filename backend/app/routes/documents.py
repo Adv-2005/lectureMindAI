@@ -1,6 +1,8 @@
-# app/routes/documents.py
-import os
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
+
+from app.core.config import settings
 from app.db.chroma import collection
 
 router = APIRouter()
@@ -54,19 +56,19 @@ def delete_document(document_id: str):
     if not ids:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    metadata = results["metadatas"]
-
-    filename = metadata[0]["filename"]
-
-
-
-    file_path = os.path.join(
-        "uploads",
-        filename
+    metadata = results.get("metadatas") or []
+    first_metadata = next(
+        (meta for meta in metadata if isinstance(meta, dict)),
+        {},
     )
+    filename = first_metadata.get("filename")
+    stored_filename = first_metadata.get("stored_filename") or filename
 
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    if stored_filename:
+        # Older indexed uploads do not include stored_filename. Their vector
+        # records are still removed even if no matching file can be found.
+        file_path = settings.uploads_dir / Path(stored_filename).name
+        file_path.unlink(missing_ok=True)
 
     collection.delete(ids=ids)
 

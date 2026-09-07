@@ -1,42 +1,37 @@
-from fastapi import APIRouter, UploadFile, File
-import os
-from app.services.pdf_service import extract_text_from_pdf
-from app.utils.chunker import chunk_text
-from app.services.embedding_service import generate_embedding
-from app.db.chroma import collection
-from uuid import uuid4
-from datetime import datetime
+import logging
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from app.services.ingestion_service import index_documents, load_and_split_pdf, save_upload
 
 router = APIRouter()
-
-UPLOAD_DIR = "uploads"
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+logger = logging.getLogger(__name__)
 
 @router.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
-    document_id = str(uuid4())
-    stored_filename = f"{document_id}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR, stored_filename)
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-    extracted_pages = extract_text_from_pdf(pdf_path=file_path, document_id=document_id, filename=stored_filename)
-    all_chunks = []
-    all_metadata = []
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF uploads are supported.")
 
-    for page in extracted_pages:
-        chunks = chunk_text(page["text"])
-        for chunk in chunks:
-            all_chunks.append(chunk)
-            all_metadata.append({
-                "filename": file.filename,
-                "page": page["page"],
-                "source_type": "pdf",
-                "document_id": document_id,
-                "uploaded_at": datetime.utcnow().isoformat()
-            })
-    embeddings = generate_embedding(all_chunks)
-    ids = [f"{document_id}_{i}" for i in range(len(all_chunks))]
-    collection.add(documents = all_chunks, embeddings = embeddings.tolist(), ids = ids, metadatas = all_metadata)
-    return {"filename": file.filename, "chunks": len(all_chunks), "message": "File uploaded successfully!", "document_id": document_id}
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
+
+    document_id, file_path = save_upload(file.filename, content)
+    try:
+        documents = load_and_split_pdf(file_path, document_id, file.filename)
+        chunk_count = index_documents(documents, document_id)
+    except Exception as exc:
+        logger.exception("Unable to process uploaded PDF (document_id=%s)", document_id)
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Unable to process PDF.") from exc
+
+    if not chunk_count:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="No readable text was found in this PDF.")
+
+    return {
+        "filename": file.filename,
+        "chunks": chunk_count,
+        "message": "File uploaded successfully!",
+        "document_id": document_id,
+    }
